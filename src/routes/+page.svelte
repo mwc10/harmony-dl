@@ -1,18 +1,97 @@
-<script lang="ts">
+<script lang='ts'>
   import { invoke } from "@tauri-apps/api/core";
+  import { open } from "@tauri-apps/plugin-dialog";
 
-  let name = $state("");
-  let greetMsg = $state("");
+  interface XmlInfo {
+    rows: number,
+    cols: number,
+    fields: number,
+    planes: number,
+    timepoints: number,
+    wells: WellInfo[][],
+    channels: Channel[],
+  }
 
-  async function greet(event: Event) {
-    event.preventDefault();
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    greetMsg = await invoke("greet", { name });
+  interface WellInfo {
+    row: number,
+    col: number,
+    fields: number[],
+    planes: number[],
+    timepoints: number[]
+  }
+
+  interface Channel {
+    id: number,
+    name: string,
+    res: [number, number],
+    mag: number
+  }
+
+  let file_path = $state("")
+  let info: XmlInfo | null = $state(null)
+  let err = $state(null)
+
+  async function open_xml() {
+    const file = await open({
+      multiple: false,
+      directory: false,
+    })
+
+    err = null
+
+    if (file) {
+      file_path = file
+      invoke<XmlInfo>('parse_xml', {path: file_path})
+        .then((res) => info = res)
+        .catch((e) => err = e)
+    }
+  }
+
+  function range(size: number, startAt = 0) {
+    return [...Array(size).keys()].map(i => i + startAt);
   }
 </script>
 
 <main class="container">
-  <h1>Welcome to Tauri + Svelte</h1>
+  <h1>Harmony Image Downloader</h1>
+  <button onclick={open_xml}>Select Export XML</button>
+
+  {#if err !== null}
+    <h2> ERROR ! </h2>
+    <p style="white-space: pre-wrap"> {err} </p>
+  {:else if file_path !== ""}
+    <p> XML File: {file_path} </p>
+    {#if info === null}
+      <p>...Parsing XML...</p>
+    {:else}
+    <h2> Channels </h2>
+    <ul>
+      {#each info.channels as channel}
+      <li>{channel.name}</li>
+      {/each}
+    </ul>
+
+    <h2>Plate</h2>
+    <table>
+      <tbody>
+      <tr>
+        <th scope="col"></th>
+        {#each range(info.cols) as colnum}
+        <th scope="col">{colnum+1}</th>
+        {/each}
+      </tr>
+      {#each range(info.rows) as row}
+        <tr>
+          <th scope="row">{row+1}</th>
+        {#each range(info.cols) as col}
+          <td> R{info.wells[row][col].row}C{info.wells[row][col].col}</td>
+        {/each}
+        </tr>
+      {/each}
+    </tbody>
+    </table>
+    {/if}
+  {/if}
 
 </main>
 
@@ -43,9 +122,23 @@
   text-align: center;
 }
 
-.row {
-  display: flex;
-  justify-content: center;
+td:hover {
+  background-color: red;
+  cursor: pointer;
+}
+ul {
+  padding: 0rem;
+  marker: none;
+}
+li {
+  display: inline;
+  padding: 0rem 2rem;
+  margin: 1rem 0.5rem;
+}
+li:hover {
+  background-color: purple;
+  color: white;
+  cursor: pointer;
 }
 
 a {
