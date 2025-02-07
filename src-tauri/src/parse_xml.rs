@@ -5,9 +5,8 @@ use std::{
     fs::File,
     io::{BufReader, Read},
     path::Path,
-    sync::Mutex,
 };
-use tauri::State;
+use tauri::{async_runtime::Mutex, State};
 
 // Helpers
 type TempMap = HashMap<String, String>;
@@ -467,7 +466,7 @@ pub async fn parse_xml(path: &str, state: State<'_, Mutex<AppState>>) -> Result<
     let output = ScanInfo::from(&info);
 
     // store state so that images from selected wells can be fetched later
-    let mut state = state.lock().unwrap();
+    let mut state = state.lock().await;
     *state = AppState::ParsedXml(info);
 
     Ok(output)

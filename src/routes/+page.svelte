@@ -27,9 +27,11 @@
     mag: number
   }
 
-  let file_path = $state("")
+  let file_path: string = $state("")
   let info: XmlInfo | null = $state(null)
-  let err = $state(null)
+  let err: string | null = $state(null)
+  let outdir: string | null = $state(null)
+  let images_downloaded: number = $state(0)
 
   async function open_xml() {
     const file = await open({
@@ -43,6 +45,23 @@
       file_path = file
       invoke<XmlInfo>('parse_xml', {path: file_path})
         .then((res) => info = res)
+        .catch((e) => err = e)
+    }
+  }
+
+  async function select_output_and_export() {
+    const output = await open({
+      multiple: false,
+      directory: true,
+    })
+
+    err = null
+
+    if (output) {
+      outdir = output
+
+      invoke<number>('test_download', {outdir: output})
+        .then((n) => images_downloaded = n)
         .catch((e) => err = e)
     }
   }
@@ -64,6 +83,12 @@
     {#if info === null}
       <p>...Parsing XML...</p>
     {:else}
+    
+    <button onclick={select_output_and_export}>Pick Output Dir and Export</button>
+    {#if outdir !== null}
+    <em>{images_downloaded} images downloaded</em>
+    {/if}
+
     <h2> Channels </h2>
     <ul>
       {#each info.channels as channel}
