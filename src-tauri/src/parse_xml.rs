@@ -10,7 +10,7 @@ use tauri::{async_runtime::Mutex, State};
 
 // Helpers
 type TempMap = HashMap<String, String>;
-type ChanMap = HashMap<ChannelID, Channel>;
+pub type ChanMap = HashMap<ChannelID, Channel>;
 type PlateVec<T> = Vec<Vec<Option<T>>>;
 type PlateMap<T> = HashMap<(u8, u8), T>;
 
@@ -145,7 +145,8 @@ pub struct Channel {
     pub name: String,
     pub res: (f64, f64), // in microns
     pub mag: u16,
-    //pub flatfield_profile: Vec<u8>,
+    pub size: (u16, u16), // in pixels
+                          //pub flatfield_profile: Vec<u8>,
 }
 
 impl TryFrom<(TempMap, ChannelID)> for Channel {
@@ -170,6 +171,7 @@ impl TryFrom<(TempMap, ChannelID)> for Channel {
                 get_f64("ImageResolutionY")? * 1e6,
             ),
             mag: get_u16("ObjectiveMagnification")?,
+            size: (get_u16("ImageSizeX")?, get_u16("ImageSizeY")?),
         })
     }
 }
