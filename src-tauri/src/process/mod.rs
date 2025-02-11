@@ -17,19 +17,19 @@ use crate::{
     AppState,
 };
 
-type XY = Array2<u16>;
+type YX = Array2<u16>;
 type Int16 = ImageBuffer<Luma<u16>, Vec<u16>>;
 
-fn array_to_image(arr: XY) -> Int16 {
+fn array_to_image(arr: YX) -> Int16 {
+    // image crate wants row order
+    // https://stackoverflow.com/questions/56762026/how-to-save-ndarray-in-rust-as-image
     let arr = arr.as_standard_layout().to_owned();
     let (h, w) = arr.dim();
     let (raw, _) = arr.into_raw_vec_and_offset();
-    // image crate wants row order
-    // https://stackoverflow.com/questions/56762026/how-to-save-ndarray-in-rust-as-image
     ImageBuffer::from_raw(w as u32, h as u32, raw).unwrap()
 }
 
-fn max_project(acc: Option<XY>, img: &Image) -> Result<Option<XY>> {
+fn max_project(acc: Option<YX>, img: &Image) -> Result<Option<YX>> {
     let res = reqwest::blocking::get(&img.url).context("getting image")?;
     let raw = res.bytes().context("reading response bytes")?;
 
@@ -40,9 +40,9 @@ fn max_project(acc: Option<XY>, img: &Image) -> Result<Option<XY>> {
         .into_ndarray2();
 
     let acc = acc
-        .map(|arr| {
-            let stacked = ndarray::stack!(Axis(0), arr, pixels);
-            stacked.map_axis(Axis(0), |view| *view.iter().max().unwrap())
+        .map(|mut acc| {
+            azip!((a in &mut acc, &b in &pixels) *a = (*a).max(b));
+            acc
         })
         .or_else(|| Some(pixels));
 
