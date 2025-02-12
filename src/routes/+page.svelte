@@ -1,34 +1,9 @@
 <script lang='ts'>
   import { invoke } from "@tauri-apps/api/core";
   import { open } from "@tauri-apps/plugin-dialog";
-
-  interface XmlInfo {
-    rows: number,
-    cols: number,
-    fields: number,
-    planes: number,
-    timepoints: number,
-    wells: WellInfo[][],
-    channels: Channel[],
-  }
-
-  interface WellInfo {
-    row: number,
-    col: number,
-    fields: number[],
-    planes: number[],
-    timepoints: number[]
-  }
-
-  interface Channel {
-    id: number,
-    name: string,
-    res: [number, number],
-    mag: number
-  }
+  import { goto } from '$app/navigation'
 
   let file_path = $state("")
-  let info: XmlInfo | null = $state(null)
   let err = $state(null)
 
   async function open_xml() {
@@ -41,9 +16,14 @@
 
     if (file) {
       file_path = file
-      invoke<XmlInfo>('parse_xml', {path: file_path})
-        .then((res) => info = res)
-        .catch((e) => err = e)
+      try {
+        await invoke<[]>('parse_xml', {path: file_path});
+
+        await goto('./select')
+
+      } catch (e: any) {
+        err = e
+      }
     }
   }
 
@@ -61,38 +41,8 @@
     <p style="white-space: pre-wrap"> {err} </p>
   {:else if file_path !== ""}
     <p> XML File: {file_path} </p>
-    {#if info === null}
-      <p>...Parsing XML...</p>
-    {:else}
-    <h2> Channels </h2>
-    <ul>
-      {#each info.channels as channel}
-      <li>{channel.name}</li>
-      {/each}
-    </ul>
-
-    <h2>Plate</h2>
-    <table>
-      <tbody>
-      <tr>
-        <th scope="col"></th>
-        {#each range(info.cols) as colnum}
-        <th scope="col">{colnum+1}</th>
-        {/each}
-      </tr>
-      {#each range(info.rows) as row}
-        <tr>
-          <th scope="row">{row+1}</th>
-        {#each range(info.cols) as col}
-          <td> R{info.wells[row][col].row}C{info.wells[row][col].col}</td>
-        {/each}
-        </tr>
-      {/each}
-    </tbody>
-    </table>
-    {/if}
+    <p>...Parsing XML...</p>
   {/if}
-
 </main>
 
 <style>

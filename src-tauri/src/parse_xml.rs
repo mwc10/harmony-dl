@@ -417,7 +417,8 @@ fn summarize_images(imgs: &[Image]) -> PlateMap<WellInfo> {
 
 // ###### Tauri Glue ######
 #[derive(Debug, serde::Serialize)]
-pub struct ScanInfo {
+pub struct XmlInfo {
+    name: String,
     rows: u8,
     cols: u8,
     fields: u16,
@@ -428,7 +429,7 @@ pub struct ScanInfo {
     // problem_wells? something missing fields or stacks...
 }
 
-impl From<&Harmony> for ScanInfo {
+impl From<&Harmony> for XmlInfo {
     fn from(h: &Harmony) -> Self {
         let (r, c) = (h.plate.rows as usize, h.plate.cols as usize);
         let (mut fields, mut planes, mut timepoints) = (0, 0, 0);
@@ -448,6 +449,7 @@ impl From<&Harmony> for ScanInfo {
         channels.sort_by(|a, b| a.id.cmp(&b.id));
 
         Self {
+            name: h.plate.name.clone(),
             rows: r as u8,
             cols: c as u8,
             fields: fields as u16,
@@ -460,15 +462,24 @@ impl From<&Harmony> for ScanInfo {
 }
 
 #[tauri::command]
-pub async fn parse_xml(path: &str, state: State<'_, Mutex<AppState>>) -> Result<ScanInfo, String> {
+pub async fn parse_xml(path: &str, state: State<'_, Mutex<AppState>>) -> Result<(), String> {
     let path = Path::new(path);
 
     let info = Harmony::from_xml_path(&path).map_err(|e| format!("{:?}", e))?;
-    let output = ScanInfo::from(&info);
 
     // store state so that images from selected wells can be fetched later
     let mut state = state.lock().unwrap();
     *state = AppState::ParsedXml(info);
 
-    Ok(output)
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_info(state: State<'_, Mutex<AppState>>) -> Result<XmlInfo, String> {
+    let state = state.lock().unwrap();
+
+    match *state {
+        AppState::Started => Err("App has not yet generated Harmony Information".into()),
+        AppState::ParsedXml(ref h) => Ok(XmlInfo::from(h)),
+    }
 }
