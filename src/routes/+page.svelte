@@ -27,6 +27,23 @@
     }
   }
 
+  // async function select_output_and_export() {
+  //   const output = await open({
+  //     multiple: false,
+  //     directory: true,
+  //   })
+
+  //   err = null
+
+  //   if (output) {
+  //     outdir = output
+
+  //     invoke<number>('test_download', {outdir: output})
+  //       .then((n) => images_downloaded = n)
+  //       .catch((e) => err = e)
+  //   }
+  // }
+
   function range(size: number, startAt = 0) {
     return [...Array(size).keys()].map(i => i + startAt);
   }

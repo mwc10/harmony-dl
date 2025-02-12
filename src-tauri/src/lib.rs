@@ -1,8 +1,7 @@
-use std::sync::Mutex;
-
-use tauri::{Builder, Manager};
+use tauri::{async_runtime::Mutex, Builder, Manager};
 
 mod parse_xml;
+mod process;
 
 enum AppState {
     Started,
@@ -17,6 +16,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             parse_xml::parse_xml,
             parse_xml::get_info,
+            process::test_download,
         ])
         .setup(|app| {
             app.manage(Mutex::new(AppState::Started));

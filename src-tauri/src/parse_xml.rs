@@ -5,13 +5,12 @@ use std::{
     fs::File,
     io::{BufReader, Read},
     path::Path,
-    sync::Mutex,
 };
-use tauri::State;
+use tauri::{async_runtime::Mutex, State};
 
 // Helpers
 type TempMap = HashMap<String, String>;
-type ChanMap = HashMap<ChannelID, Channel>;
+pub type ChanMap = HashMap<ChannelID, Channel>;
 type PlateVec<T> = Vec<Vec<Option<T>>>;
 type PlateMap<T> = HashMap<(u8, u8), T>;
 
@@ -468,7 +467,7 @@ pub async fn parse_xml(path: &str, state: State<'_, Mutex<AppState>>) -> Result<
     let info = Harmony::from_xml_path(&path).map_err(|e| format!("{:?}", e))?;
 
     // store state so that images from selected wells can be fetched later
-    let mut state = state.lock().unwrap();
+    let mut state = state.lock().await;
     *state = AppState::ParsedXml(info);
 
     Ok(())
@@ -476,7 +475,7 @@ pub async fn parse_xml(path: &str, state: State<'_, Mutex<AppState>>) -> Result<
 
 #[tauri::command]
 pub async fn get_info(state: State<'_, Mutex<AppState>>) -> Result<XmlInfo, String> {
-    let state = state.lock().unwrap();
+    let state = state.lock().await;
 
     match *state {
         AppState::Started => Err("App has not yet generated Harmony Information".into()),
