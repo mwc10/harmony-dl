@@ -2,6 +2,7 @@
     import type { WellInfo, XmlInfo } from "$lib/ffi_types";
     import WellPlate from "../WellPlate.svelte";
     import { range } from "$lib/range"
+    import { invoke } from "@tauri-apps/api/core";
 
 
     let { data }: {data: {info: XmlInfo}} = $props();
@@ -42,11 +43,11 @@
     let plane_high = $state(info.planes)
 
     // create summary and send to rust...?
-    const apply_filter = () => {
+    const apply_filter = async () => {
         const wells = active_wells.flatMap((r, i) => {
             return r.map((w, j) => [w, i, j])
             .filter(([w, ..._]) => w)
-            .map(([_, i, j]) => [i+1, j+1])
+            .map(([_, i, j]) => [Number(i)+1, Number(j)+1])
 
         })
         const filter = {
@@ -56,7 +57,9 @@
             planes: [...range(plane_low, plane_high+1)],
         }
 
-        console.log(filter)
+        await invoke('set_filter', {filter})
+
+        
     }
 
 </script>

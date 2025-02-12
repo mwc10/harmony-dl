@@ -1,3 +1,7 @@
+mod filter;
+
+pub use filter::ImageFilter;
+
 use std::{
     collections::HashMap,
     fs::File,
@@ -130,11 +134,11 @@ pub async fn test_download(outdir: &str, state: State<'_, Mutex<AppState>>) -> R
     let state = state.lock().await;
     let outdir = Path::new(outdir);
 
-    match *state {
+    match state.info {
         // AppState::ParsedXml(ref harmony) => download_image(&harmony, &outdir)
         //     .await
         //     .map_err(|e| format!("{:?}", e)),
-        AppState::ParsedXml(ref hm) => dl_and_maxproj(hm, outdir)
+        Some(ref hm) => dl_and_maxproj(hm, outdir)
             .context("max projecting images")
             .map_err(|e| format!("{:?}", e))
             .map(|_| hm.images.len() as u64),

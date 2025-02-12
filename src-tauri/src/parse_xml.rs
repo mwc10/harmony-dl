@@ -39,7 +39,7 @@ fn get_f64<'a>(map: &'a TempMap, key: &str) -> Result<f64> {
 }
 
 /// Harmony defined channel IDs...
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, serde::Serialize)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, serde::Serialize, serde::Deserialize)]
 pub struct ChannelID(u8);
 
 /// Holds all of the necessary information from
@@ -468,17 +468,7 @@ pub async fn parse_xml(path: &str, state: State<'_, Mutex<AppState>>) -> Result<
 
     // store state so that images from selected wells can be fetched later
     let mut state = state.lock().await;
-    *state = AppState::ParsedXml(info);
+    state.info = Some(info);
 
     Ok(())
-}
-
-#[tauri::command]
-pub async fn get_info(state: State<'_, Mutex<AppState>>) -> Result<XmlInfo, String> {
-    let state = state.lock().await;
-
-    match *state {
-        AppState::Started => Err("App has not yet generated Harmony Information".into()),
-        AppState::ParsedXml(ref h) => Ok(XmlInfo::from(h)),
-    }
 }
