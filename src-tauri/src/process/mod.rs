@@ -1,4 +1,5 @@
 mod filter;
+mod max;
 
 pub use filter::ImageFilter;
 
@@ -14,7 +15,7 @@ use image::{ImageBuffer, ImageFormat, ImageReader, Luma};
 use ndarray::prelude::*;
 use nshare::IntoNdarray2;
 use rayon::prelude::*;
-use tauri::{async_runtime::Mutex, State};
+use tauri::{async_runtime::Mutex, ipc::Channel, State};
 
 use crate::{
     parse_xml::{ChannelID, Harmony, Image},
@@ -30,6 +31,7 @@ pub struct OutputInfo {
 
 #[derive(serde::Serialize)]
 pub struct DownloadInfo {
+    name: String,
     rows: u16,
     cols: u16,
     output: OutputInfo,
@@ -56,6 +58,7 @@ impl TryFrom<&AppState> for DownloadInfo {
         let cols = info.plate.cols;
 
         Ok(Self {
+            name: info.plate.name.clone(),
             rows,
             cols,
             output: output.clone(),
@@ -67,6 +70,7 @@ impl TryFrom<&AppState> for DownloadInfo {
 type YX = Array2<u16>;
 type Int16 = ImageBuffer<Luma<u16>, Vec<u16>>;
 
+/// Helper function to converted 2D NDArray into Image crate Image
 fn array_to_image(arr: YX) -> Int16 {
     // image crate wants row order
     // https://stackoverflow.com/questions/56762026/how-to-save-ndarray-in-rust-as-image
@@ -145,7 +149,7 @@ fn dl_and_maxproj(hm: &Harmony, dir: &Path) -> Result<()> {
         })
 }
 
-async fn download_image(hm: &Harmony, dir: &Path) -> Result<u64> {
+async fn _download_image(hm: &Harmony, dir: &Path) -> Result<u64> {
     let iter = hm
         .images
         .iter()
@@ -171,6 +175,32 @@ async fn download_image(hm: &Harmony, dir: &Path) -> Result<u64> {
     }
 
     Ok(count)
+}
+
+#[derive(Clone, serde::Serialize, Copy)]
+#[serde(rename_all = "camelCase", tag = "event", content = "data")]
+pub enum DLEvent {
+    Started,
+    StartField { r: u8, c: u8, f: u32 },
+    DownloadedPlane { r: u8, c: u8, f: u32, p: u32 },
+    FinishField { r: u8, c: u8, f: u32 },
+    Finished,
+}
+
+#[tauri::command]
+pub async fn start_download(
+    on_event: Channel<DLEvent>,
+    state: State<'_, Mutex<AppState>>,
+) -> Result<(), String> {
+    let state = state.lock().await;
+
+    let hm = state.info.as_ref().ok_or("Missing XML Info")?;
+    let filter = state.filter.as_ref().ok_or("Missing Filter")?;
+    let outinfo = state.output.as_ref().ok_or("Missing output info")?;
+
+    let imgs = filter.filter_images(&hm);
+
+    max::max_project(&imgs, hm, &outinfo.dir, on_event).map_err(|e| format!("{:?}", e))
 }
 
 #[tauri::command]

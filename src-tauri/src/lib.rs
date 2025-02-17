@@ -67,6 +67,7 @@ pub fn run() {
             set_filter,
             set_output,
             parse_xml::parse_xml,
+            process::start_download,
             process::test_download,
         ])
         .setup(|app| {
