@@ -3,6 +3,7 @@
     import WellPlate from "../WellPlate.svelte";
     import { range } from "$lib/range"
     import { invoke } from "@tauri-apps/api/core";
+    import { goto } from "$app/navigation";
 
 
     let { data }: {data: {info: XmlInfo}} = $props();
@@ -43,6 +44,7 @@
     let plane_high = $state(info.planes)
 
     // create summary and send to rust...?
+    const cnameToCid = Object.fromEntries(info.channels.map(ch => [ch.name, ch.id]))
     const apply_filter = async () => {
         const wells = active_wells.flatMap((r, i) => {
             return r.map((w, j) => [w, i, j])
@@ -51,15 +53,14 @@
 
         })
         const filter = {
-            channels: [...active_channels],
+            channels: active_channels.map(n => cnameToCid[n]),
             wells,
             fields: [...range(field_start, field_end+1, field_step)],
             planes: [...range(plane_low, plane_high+1)],
         }
 
         await invoke('set_filter', {filter})
-
-        
+        await goto('./output')
     }
 
 </script>

@@ -1,8 +1,9 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use crate::parse_xml::{ChannelID, Harmony, Image};
 
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ImageFilter {
     pub channels: HashSet<ChannelID>,
     // (row, col) [one indexed]
@@ -12,14 +13,15 @@ pub struct ImageFilter {
 }
 
 impl ImageFilter {
-    fn filter_harmony<'a>(&self, hm: &'a Harmony) -> Vec<&'a Image> {
-        hm.images.iter()
+    pub fn filter_images<'a>(&self, hm: &'a Harmony) -> Vec<&'a Image> {
+        hm.images
+            .iter()
             .filter(|img| {
-                self.channels.contains(&img.channel) &
-                self.wells.contains(&(img.row, img.col)) &
-                self.fields.contains(&img.field) &
-                self.planes.contains(&img.plane)
-            }).collect()
+                self.channels.contains(&img.channel)
+                    & self.wells.contains(&(img.row, img.col))
+                    & self.fields.contains(&img.field)
+                    & self.planes.contains(&img.plane)
+            })
+            .collect()
     }
 }
-

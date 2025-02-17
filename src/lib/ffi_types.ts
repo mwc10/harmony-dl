@@ -31,3 +31,20 @@ export interface ImageFilter {
     planes: number[],
 }
 
+export interface OutputInfo {
+    dir: string,
+    action: string,
+    format: string,
+}
+
+export interface DownloadInfo {
+    name: string,
+    output: OutputInfo,
+    rows: number,
+    cols: number,
+    fields: number,
+    planes: number,
+    timepoints: number,
+    wells: [number, number][],
+}
+

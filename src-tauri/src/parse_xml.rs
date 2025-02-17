@@ -39,7 +39,9 @@ fn get_f64<'a>(map: &'a TempMap, key: &str) -> Result<f64> {
 }
 
 /// Harmony defined channel IDs...
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, serde::Serialize, serde::Deserialize,
+)]
 pub struct ChannelID(u8);
 
 /// Holds all of the necessary information from
@@ -417,14 +419,14 @@ fn summarize_images(imgs: &[Image]) -> PlateMap<WellInfo> {
 // ###### Tauri Glue ######
 #[derive(Debug, serde::Serialize)]
 pub struct XmlInfo {
-    name: String,
-    rows: u8,
-    cols: u8,
-    fields: u16,
-    planes: u16,
-    timepoints: u16,
+    pub name: String,
+    pub rows: u8,
+    pub cols: u8,
+    pub fields: u16,
+    pub planes: u16,
+    pub timepoints: u16,
     wells: PlateVec<WellInfo>,
-    channels: Vec<Channel>,
+    pub channels: Vec<Channel>,
     // problem_wells? something missing fields or stacks...
 }
 

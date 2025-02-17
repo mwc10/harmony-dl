@@ -9,7 +9,7 @@ use std::{
     path::Path,
 };
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use image::{ImageBuffer, ImageFormat, ImageReader, Luma};
 use ndarray::prelude::*;
 use nshare::IntoNdarray2;
@@ -20,6 +20,49 @@ use crate::{
     parse_xml::{ChannelID, Harmony, Image},
     AppState,
 };
+
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
+pub struct OutputInfo {
+    pub dir: std::path::PathBuf,
+    pub action: String,
+    pub format: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct DownloadInfo {
+    rows: u16,
+    cols: u16,
+    output: OutputInfo,
+    filter: ImageFilter,
+}
+
+impl TryFrom<&AppState> for DownloadInfo {
+    type Error = anyhow::Error;
+    fn try_from(state: &AppState) -> Result<Self> {
+        let info = state
+            .info
+            .as_ref()
+            .ok_or_else(|| anyhow!("Missing measurement info"))?;
+        let output = state
+            .output
+            .as_ref()
+            .ok_or_else(|| anyhow!("Missing output info"))?;
+        let filter = state
+            .filter
+            .as_ref()
+            .ok_or_else(|| anyhow!("Missing filter info"))?;
+
+        let rows = info.plate.rows;
+        let cols = info.plate.cols;
+
+        Ok(Self {
+            rows,
+            cols,
+            output: output.clone(),
+            filter: filter.clone(),
+        })
+    }
+}
 
 type YX = Array2<u16>;
 type Int16 = ImageBuffer<Luma<u16>, Vec<u16>>;
@@ -91,9 +134,11 @@ fn dl_and_maxproj(hm: &Harmony, dir: &Path) -> Result<()> {
                 .ok_or_else(|| anyhow::anyhow!("missing projection (ADD well info...!!)"))?;
 
             let (r, c, ch, tp, f) = k;
-            let ch = &cmap[&ch].name;
             let img = array_to_image(projection);
-            let output = dir.join(format!("{ch}-R{r:02}C{c:02}F{f:03}T{tp}.tiff"));
+            let output = dir.join(format!(
+                "{}-R{r:02}C{c:02}F{f:03}T{tp}.tiff",
+                cmap[&ch].name
+            ));
 
             img.save_with_format(&output, ImageFormat::Tiff)
                 .with_context(|| format!("saving image to {}", output.display()))
@@ -109,10 +154,9 @@ async fn download_image(hm: &Harmony, dir: &Path) -> Result<u64> {
     let cmap = &hm.channels;
     let mut count = 0;
     for img in iter {
-        let c = &cmap[&img.channel].name;
         let f = dir.join(format!(
-            "R{:02}C{:02}F{:03}P{:03}-{c}.tiff",
-            img.row, img.col, img.field, img.plane
+            "R{:02}C{:02}F{:03}P{:03}-{}.tiff",
+            img.row, img.col, img.field, img.plane, cmap[&img.channel].name
         ));
         let res = reqwest::get(&img.url).await.context("downloading image")?;
 
