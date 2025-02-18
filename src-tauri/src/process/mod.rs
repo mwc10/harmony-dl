@@ -181,9 +181,7 @@ async fn _download_image(hm: &Harmony, dir: &Path) -> Result<u64> {
 #[serde(rename_all = "camelCase", tag = "event", content = "data")]
 pub enum DLEvent {
     Started,
-    StartField { r: u8, c: u8, f: u32 },
-    DownloadedPlane { r: u8, c: u8, f: u32, p: u32 },
-    FinishField { r: u8, c: u8, f: u32 },
+    Plane { r: u16, c: u16, f: u32, p: u16 },
     Finished,
 }
 
@@ -200,7 +198,11 @@ pub async fn start_download(
 
     let imgs = filter.filter_images(&hm);
 
-    max::max_project(&imgs, hm, &outinfo.dir, on_event).map_err(|e| format!("{:?}", e))
+    on_event.send(DLEvent::Started).unwrap();
+
+    max::max_project(&imgs, hm, &outinfo.dir, on_event.clone())
+        .map_err(|e| format!("{:?}", e))
+        .inspect(|_| on_event.send(DLEvent::Finished).unwrap())
 }
 
 #[tauri::command]

@@ -12,8 +12,11 @@ use rayon::prelude::*;
 
 use crate::parse_xml::{ChannelID, Harmony, Image};
 
+type Chan = Channel<DLEvent>;
+type MaxAcc = Option<YX>;
+
 /// Download an Image and project onto the accumulated pixels
-fn max_field(acc: Option<YX>, img: &Image) -> Result<Option<YX>> {
+fn max_field(event: Chan, acc: MaxAcc, img: &Image) -> Result<MaxAcc> {
     let res = reqwest::blocking::get(&img.url)
         .with_context(|| format!("downloading image from <{}>", &img.url))?;
     let raw = res
@@ -34,7 +37,14 @@ fn max_field(acc: Option<YX>, img: &Image) -> Result<Option<YX>> {
         })
         .or_else(|| Some(pixels));
 
-    // report field finsihed
+    event
+        .send(DLEvent::Plane {
+            r: img.row,
+            c: img.col,
+            f: img.field,
+            p: img.plane,
+        })
+        .unwrap();
 
     Ok(acc)
 }
@@ -90,17 +100,15 @@ pub fn max_project(
         acc
     });
 
+    let project_evt = |acc, img| max_field(on_event.clone(), acc, img);
+
     by_field
         .into_par_iter()
         .map(|(key, imgs)| {
-            on_event
-                .send(DLEvent::Started { r: key.r, c: key.c })
-                .unwrap();
-
             imgs.into_iter()
-                .try_fold(None, max_field)
-                .map(|projection| (key, projection))
+                .try_fold(None, project_evt)
                 .with_context(|| format!("processing {}", &key))
+                .map(|projection| (key, projection))
         })
         .try_for_each(|res| {
             let (key, projection) = res?;
@@ -113,14 +121,7 @@ pub fn max_project(
             let fname = format!("{ch}-R{r:02}C{c:02}T{t:03}F{f:03}.tiff");
             let output = outdir.join(&fname);
 
-            let res = img
-                .save_with_format(&output, ImageFormat::Tiff)
-                .with_context(|| format!("saving projection to <{}>", output.display()));
-
-            on_event
-                .send(DLEvent::Finished { r: key.r, c: key.c })
-                .unwrap();
-
-            res
+            img.save_with_format(&output, ImageFormat::Tiff)
+                .with_context(|| format!("saving projection to <{}>", output.display()))
         })
 }

@@ -6,11 +6,14 @@
 
     let { data }: {data: {info: DownloadInfo}} = $props();
     let info = data.info;
+    let max_planes = (() => {
+        let f = info.filter
+        // timepoints?
+        return f.channels.length * f.fields.length * f.planes.length
+    })() 
 
     interface WellStatus {
         progress: "skipped" | "waiting" | "processing" | "finished",
-        timepoints: number,
-        fields: number,
         planes: number,
     }
 
@@ -18,8 +21,6 @@
         let wells: (WellStatus)[][] = [...range(info.rows)]
             .map(_ => [...range(info.cols)].map(_ => ({
                 progress: 'skipped',
-                timepoints: 0,
-                fields: 0,
                 planes: 0,
             })))
 
@@ -32,40 +33,50 @@
     }
     console.log(info)
 
-    let status = $state(create_status())
+    let wellStatus = $state(create_status())
+    let dlStatus = $state("Waiting...")
 
     // start the image downloads
     const onEvent = new Channel<DLEvent>()
     const handle_dl_event = (msg: DLEvent, status: WellStatus[][]) => {
-        let {r, c} = msg.data
-        r = r - 1
-        c = c - 1
         switch (msg.event) {
             case "started": {
-                status[r][c].progress = "processing"
+                dlStatus = 'Download Started!'
                 break;
             }
-            case "field": {
-                if (status[r][c].progress !== "skipped") {
-                    status[r][c].fields = status[r][c].fields + 1 
-                }
+            case "plane": {
+                let {r, c} = msg.data
+                let w = wellStatus[r - 1][c - 1]
+
+                w.planes += 1
+                w.progress = w.planes >= max_planes ? 'finished' : 'processing'
                 break;
             }
             case "finished": {
-                status[r][c].progress = "finished"
+                dlStatus = 'Download Finished!'
                 break;
             }
         }
     }
     onEvent.onmessage = (msg) => {
-        console.log(`got message <${msg.event}>`)
-        handle_dl_event(msg, status)
+        handle_dl_event(msg, wellStatus)
     }
 
     async function download_plz() {
         return invoke<null>('start_download', {onEvent: onEvent})
             .then(_ => console.log('download complete!'))
             .catch(err => {throw err})
+    }
+
+    function display_well_status(well: WellStatus) {
+        let fmt = new Intl.NumberFormat(undefined, {
+            style: 'percent',
+            maximumFractionDigits: 0
+        })
+        return well.progress === "processing" ?
+            fmt.format(well.planes / max_planes)
+            :
+            ""
     }
 
 
@@ -77,9 +88,11 @@
 
     <button onclick={download_plz}>Start Download</button>
 
-    <p>{JSON.stringify(status)}</p>
+    <h2>{dlStatus}</h2>
 
-    <WellPlate plate={status}>
+    <p>{JSON.stringify(wellStatus)}</p>
+
+    <WellPlate plate={wellStatus}>
         {#snippet rowHdr(r: number)}
             <th scope="row">{r + 1}</th>
         {/snippet}
@@ -87,13 +100,18 @@
             <th scope="col">{c + 1}</th>
         {/snippet}
         {#snippet well(r: number, c: number, s: WellStatus)}
-            <td class={s.progress}>{s.progress === "skipped" ? "" : s.progress}</td>
+            <td class={s.progress}>{display_well_status(s)}</td>
         {/snippet}
     </WellPlate>
 
 </main>
 
 <style>
+    td {
+        min-width: 2.5rem;
+        text-align: center;
+        vertical-align: center;
+    }
     td.skipped {
         background-color: darkgray;
     }
@@ -104,6 +122,6 @@
         background-color: dodgerblue;
     }
     td.finished {
-        background-color: green;
+        background-color: olivedrab;
     }
 </style>

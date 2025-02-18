@@ -48,24 +48,19 @@ export interface DownloadInfo {
 export type DLEvent = 
 | {
     event: 'started';
-    data: {
-        r: number,
-        c: number,
-    };
+    data: {}
   }
 | {
-    event: 'field';
+    event: 'plane';
     data: {
         r: number,
         c: number,
         f: number,
+        p: number,
     };
   }
 | {
     event: 'finished';
-    data: {
-        r: number,
-        c: number,
-    };
+    data: {}
  }; 
 
