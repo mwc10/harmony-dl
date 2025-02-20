@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use parse_xml::{Harmony, XmlInfo};
 use process::{DownloadInfo, ImageFilter, OutputInfo};
 use tauri::{async_runtime::Mutex, Builder, Manager, State};
@@ -33,18 +31,9 @@ async fn set_filter(filter: ImageFilter, state: State<'_, Mutex<AppState>>) -> R
 }
 
 #[tauri::command]
-async fn set_output(
-    dir: PathBuf,
-    action: String,
-    format: String,
-    state: State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+async fn set_output(info: OutputInfo, state: State<'_, Mutex<AppState>>) -> Result<(), String> {
     let mut state = state.lock().await;
-    state.output = Some(OutputInfo {
-        dir,
-        action,
-        format,
-    });
+    state.output = Some(info);
 
     Ok(())
 }
@@ -68,7 +57,6 @@ pub fn run() {
             set_output,
             parse_xml::parse_xml,
             process::start_download,
-            process::test_download,
         ])
         .setup(|app| {
             app.manage(Mutex::new(AppState::default()));

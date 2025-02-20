@@ -17,7 +17,7 @@
         }
     }
     // processing
-    const pipelines = ['Max Projection', 'No Processing']
+    const pipelines = ['Max Projection', 'Individual Planes']
     let action = $state(pipelines[0])
     // formats
     const formats = ['TIFF', 'OME-Zarr']
@@ -26,9 +26,11 @@
     // saving and starting...
     async function start_download() {
         await invoke('set_output', {
-            dir: outdir,
-            action,
-            format
+            info: {
+                dir: outdir,
+                action,
+                format
+            }
         })
 
         await goto('./download')

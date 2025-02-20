@@ -54,6 +54,9 @@ pub struct Harmony {
     pub channels: ChanMap,
     pub images: Vec<Image>,
     pub wells: PlateMap<WellInfo>,
+    pub timepoints: u16,
+    pub fields_per_well: u16,
+    pub planes_per_field: u16,
 }
 
 impl Harmony {
@@ -103,11 +106,17 @@ impl Harmony {
             .zip(channels)
             .zip(images)
             .zip(wells)
-            .map(|(((plate, channels), images), wells)| Self {
-                plate,
-                channels,
-                images,
-                wells,
+            .map(|(((plate, channels), images), wells)| {
+                let (f, p, tp) = summarize_wells(&wells);
+                Self {
+                    plate,
+                    channels,
+                    images,
+                    wells,
+                    fields_per_well: f,
+                    planes_per_field: p,
+                    timepoints: tp,
+                }
             })
             .ok_or_else(|| anyhow!("Missing components in XML file"))
     }
@@ -416,6 +425,20 @@ fn summarize_images(imgs: &[Image]) -> PlateMap<WellInfo> {
         })
 }
 
+/// Count the max number of fields per well, planes per field,
+/// and timepoints per experiment (well technically I guess..?)
+fn summarize_wells(wells: &PlateMap<WellInfo>) -> (u16, u16, u16) {
+    let (mut fields, mut planes, mut timepoints) = (0, 0, 0);
+
+    for (_, well) in wells.iter() {
+        fields = fields.max(well.fields.len());
+        planes = planes.max(well.planes.len());
+        timepoints = timepoints.max(well.timepoints.len());
+    }
+
+    (fields as u16, planes as u16, timepoints as u16)
+}
+
 // ###### Tauri Glue ######
 #[derive(Debug, serde::Serialize)]
 pub struct XmlInfo {
@@ -433,16 +456,11 @@ pub struct XmlInfo {
 impl From<&Harmony> for XmlInfo {
     fn from(h: &Harmony) -> Self {
         let (r, c) = (h.plate.rows as usize, h.plate.cols as usize);
-        let (mut fields, mut planes, mut timepoints) = (0, 0, 0);
         let mut wells = vec![vec![None; c]; r];
 
         for (&(r, c), well) in h.wells.iter() {
             let (r, c) = (r as usize, c as usize);
             let (r, c) = (r - 1, c - 1);
-            fields = fields.max(well.fields.len());
-            planes = planes.max(well.planes.len());
-            timepoints = timepoints.max(well.timepoints.len());
-
             wells[r][c] = Some(well.clone());
         }
 
@@ -453,9 +471,9 @@ impl From<&Harmony> for XmlInfo {
             name: h.plate.name.clone(),
             rows: r as u8,
             cols: c as u8,
-            fields: fields as u16,
-            planes: planes as u16,
-            timepoints: timepoints as u16,
+            fields: h.fields_per_well,
+            planes: h.planes_per_field,
+            timepoints: h.timepoints,
             wells,
             channels,
         }

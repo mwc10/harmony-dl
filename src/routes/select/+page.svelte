@@ -14,25 +14,65 @@
         info.channels.map((c) => c.name)
     )
     // Wells
+    type WellSelection = "active" | "inactive" | "skipped"
     const imaged_wells = (wells: (WellInfo | null)[][]) => {
-        return wells.map((r) => r.map((w) => w !== null))
+        let check = (w: any) => (w !== null ? "active" : "skipped") as WellSelection
+        return wells.map((r) => r.map(check))
     }
+
     let active_wells = $state(imaged_wells(info.wells))
     const toggle_well = (r:number, c:number) => {
-        active_wells[r][c] = !active_wells[r][c]
+        let cur = active_wells[r][c]
+        if (cur === "active") {
+            active_wells[r][c] = "inactive"
+        } else if (cur === "inactive") {
+            active_wells[r][c] = "active"
+        }
     }
+    const set_active = (w: WellSelection) => {
+        return w !== "skipped" ? "active" : w
+    }
+
+    const set_inactive = (w: WellSelection) => {
+        return w !== "skipped" ? "inactive" : w
+    }
+
     const toggle_row = (r:number) => {
         // if any off well, turn all on
-        const current = active_wells[r].some((w) => !w)
-        active_wells[r] = active_wells[r].map((_) => current)
+        const turnOn = active_wells[r].some((w) => w === "inactive")
+        const toggle = (w: WellSelection) => turnOn ? set_active(w) : set_inactive(w)
+        active_wells[r] = active_wells[r].map(toggle)
     }
     const toggle_col = (c:number) => {
-        const current = active_wells
+        const turnOn = active_wells
             .map((r) => r[c])
-            .some((w) => !w)
+            .some((w) => w === "inactive")
+        const toggle = (w: WellSelection) => turnOn ? set_active(w) : set_inactive(w)
         for (let r = 0; r <  active_wells.length; r++) {
-            active_wells[r][c] = current
+            active_wells[r][c] = toggle(active_wells[r][c])
         }
+    }
+    const turn_plate_on = () => {
+        active_wells = active_wells.map(r => r.map(set_active))
+    }
+    const turn_plate_off = () => {
+        active_wells = active_wells.map(r => r.map(set_inactive))
+    }
+    const checkboard = () => {
+        active_wells = active_wells.map((r, i) => {
+            return r.map((w, j) => (i + j) % 2 ? set_inactive(w) : set_active(w) )
+        })
+    }
+    const toggle_plate = () => {
+        active_wells = active_wells.map((r) => {
+            return r.map((w) => {
+                return w === "active" ?
+                    "inactive" :
+                    w === "inactive" ?
+                    "active" :
+                    w
+            })
+        })
     }
     // Fields
     let field_start = $state(1)
@@ -48,7 +88,7 @@
     const apply_filter = async () => {
         const wells = active_wells.flatMap((r, i) => {
             return r.map((w, j) => [w, i, j])
-            .filter(([w, ..._]) => w)
+            .filter(([w, ..._]) => w === 'active')
             .map(([_, i, j]) => [Number(i)+1, Number(j)+1])
 
         })
@@ -93,10 +133,15 @@
             {c + 1}
         </th>
         {/snippet}
-        {#snippet well(r:number, c:number, chosen: boolean)}
-        <td class="{chosen?'active':'inactive'}" onclick={(_) => toggle_well(r,c)}></td>
+        {#snippet well(r:number, c:number, selStatus: WellSelection)}
+        <td class="{selStatus}" onclick={(_) => toggle_well(r,c)}></td>
         {/snippet}
     </WellPlate>
+
+    <button onclick={turn_plate_on}>All Wells</button>
+    <button onclick={turn_plate_off}>No Wells</button>
+    <button onclick={checkboard}>Checkboard Wells</button>
+    <button onclick={toggle_plate}>Toggle Wells</button>
 
     <h3> Fields </h3>
     <p> {JSON.stringify(info.fields)} Total </p>
@@ -136,7 +181,10 @@
         background-color: green;
     }
     .inactive {
-        background-color: lightslategray;
+        background-color: darkgrey;
+    }
+    .skipped {
+        background-color: darkslategray;
     }
     label {
         cursor: pointer;
