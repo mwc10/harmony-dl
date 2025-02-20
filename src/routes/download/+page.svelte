@@ -34,14 +34,14 @@
     console.log(info)
 
     let wellStatus = $state(create_status())
-    let dlStatus = $state("Waiting...")
+    let dlStatus: "W" | "R" | "C" = $state("W")
 
     // start the image downloads
     const onEvent = new Channel<DLEvent>()
     const handle_dl_event = (msg: DLEvent, status: WellStatus[][]) => {
         switch (msg.event) {
             case "started": {
-                dlStatus = 'Download Started!'
+                dlStatus = 'R'
                 break;
             }
             case "plane": {
@@ -53,7 +53,7 @@
                 break;
             }
             case "finished": {
-                dlStatus = 'Download Finished!'
+                dlStatus = 'C'
                 break;
             }
         }
@@ -79,22 +79,33 @@
             ""
     }
 
+    function display_dl_status() {
+        switch(dlStatus) {
+            case "W": return "Waiting..."
+            case "R": return "Downloading"
+            case "C": return "Dowload Complete!"
+        }
+    }
+
 
 </script>
 
 <main>
     <h1>{info.name}</h1>
-    <p>Downloading to: {info.output.dir}</p>
+    <p>Downloading to:</p> 
+    <p>{info.output.dir}</p>
 
-    <button onclick={download_plz}>Start Download</button>
+    {#if dlStatus === "W"}
+        <button onclick={download_plz}>Start Download</button>
+    {/if}
 
-    <h2>{dlStatus}</h2>
-
-    <p>{JSON.stringify(wellStatus)}</p>
+    <h2>
+        {display_dl_status()}
+    </h2>
 
     <WellPlate plate={wellStatus}>
         {#snippet rowHdr(r: number)}
-            <th scope="row">{r + 1}</th>
+            <th scope="row">{String.fromCharCode(65+r)}</th>
         {/snippet}
         {#snippet colHdr(c: number)}
             <th scope="col">{c + 1}</th>
@@ -104,7 +115,16 @@
         {/snippet}
     </WellPlate>
 
+
+    
+
 </main>
+
+<footer>
+    <hr />
+    <a href="/output">Change output info</a>
+</footer>
+
 
 <style>
     td {

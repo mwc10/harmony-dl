@@ -75,13 +75,18 @@
         })
     }
     // Fields
-    let field_start = $state(1)
-    let field_end = $state(info.fields)
-    let field_step = $state(1)
+    let selFields = $state({
+        start: 1,
+        end: info.fields,
+        step: 1
+    })
 
     // Planes
-    let plane_low = $state(1)
-    let plane_high = $state(info.planes)
+    let selPlanes = $state({
+        start: 1,
+        end: info.planes,
+        step: 1
+    })
 
     // create summary and send to rust...?
     const cnameToCid = Object.fromEntries(info.channels.map(ch => [ch.name, ch.id]))
@@ -95,8 +100,8 @@
         const filter = {
             channels: active_channels.map(n => cnameToCid[n]),
             wells,
-            fields: [...range(field_start, field_end+1, field_step)],
-            planes: [...range(plane_low, plane_high+1)],
+            fields: [...range(selFields.start, selFields.end+1, selFields.step)],
+            planes: [...range(selPlanes.start, selPlanes.end+1, selPlanes.step)],
         }
 
         await invoke('set_filter', {filter})
@@ -106,7 +111,7 @@
 </script>
 
 <main>
-    <h1>Data Selection</h1>
+    <h1>Select Images to Download</h1>
     <h2>{info.name}</h2>
     <h3>Channels</h3>
     {#each info.channels as c}
@@ -122,6 +127,7 @@
     {/each}
 
     <h3> Wells </h3>
+    <div class="plate">
     <WellPlate plate={active_wells}>
         {#snippet rowHdr(r:number)}
         <th scope="row" onclick={()=>toggle_row(r)}>
@@ -137,6 +143,7 @@
         <td class="{selStatus}" onclick={(_) => toggle_well(r,c)}></td>
         {/snippet}
     </WellPlate>
+    </div>
 
     <button onclick={turn_plate_on}>All Wells</button>
     <button onclick={turn_plate_off}>No Wells</button>
@@ -144,31 +151,44 @@
     <button onclick={toggle_plate}>Toggle Wells</button>
 
     <h3> Fields </h3>
-    <p> {JSON.stringify(info.fields)} Total </p>
-    <label for="fStart">First Field: </label>
-    <input id="fStart" type="number" bind:value={field_start} />
+    <p> {JSON.stringify(info.fields)} fields per well </p>
+    <div class="range">          
+        <label for="fStart">First Field: </label>
+        <input id="fStart" type="number" bind:value={selFields.start} />
+    
 
-    <label for="fEnd">Last Field: </label>
-    <input id="fEnd" type="number" bind:value={field_end} />
+        <label for="fEnd">Last Field: </label>
+        <input id="fEnd" type="number" bind:value={selFields.end} />
 
-    <label for="fStep">Step by: </label>
-    <input id="fStep" type="number" bind:value={field_step} />
+        <label for="fStep">Step by: </label>
+        <input id="fStep" type="number" bind:value={selFields.step} />
+    </div>
 
     <h3> Planes </h3>
-    <label for="pMin">Lowest: </label>
-    <input id="pMin" type="number" bind:value={plane_low} />
+    <p> {JSON.stringify(info.planes)} planes per field </p>
+    <div class="range">
+        <label for="pMin">Lowest: </label>
+        <input id="pMin" type="number" bind:value={selPlanes.start} />
 
-    <label for="pMax">Highest: </label>
-    <input id="pMax" type="number" bind:value={plane_high} />
-    <hr />
+        <label for="pMax">Highest: </label>
+        <input id="pMax" type="number" bind:value={selPlanes.end} />
+        
+        <label for="pStep">Step by: </label>
+        <input id="pStep" type="number" bind:value={selPlanes.step} />
+    </div>
 
-    <button onclick={apply_filter}>Fetch Images</button>
-    
+    <div class="centered">
+        <button class='next' onclick={apply_filter}>Select Output Options</button>
+    </div>
+
     <hr />
     <a href="/">Select Another File?</a>
 </main>
 
 <style>
+    div.plate {
+        margin-bottom: 0.75rem;
+    }
     th {
         min-width: 1.25rem;
         cursor: pointer;
@@ -181,15 +201,31 @@
         background-color: green;
     }
     .inactive {
-        background-color: darkgrey;
+        background-color: slategray;
     }
     .skipped {
-        background-color: darkslategray;
+        background-color: #444;
     }
     label {
         cursor: pointer;
         display: inline-block;
         padding: 0.5rem 1rem;
+    }
+    div.range {
+        display: flex;
+    }
+    .range input {
+        max-width: 6rem;
+    }
+    button.next {
+        margin-top: 2rem;
+        margin-bottom: 0.5rem;
+        width: 85%;
+    }
+    .centered {
+        display: flex;
+        justify-content: center;
+        text-align: center;
     }
 </style>
 
