@@ -3,6 +3,7 @@
     import { range } from "$lib/range";
     import { Channel, invoke } from "@tauri-apps/api/core";
     import WellPlate from "../WellPlate.svelte";
+    import { goto } from "$app/navigation";
 
     let { data }: {data: {info: DownloadInfo}} = $props();
     let info = data.info;
@@ -87,6 +88,11 @@
         }
     }
 
+    async function clear_and_restart() {
+        await invoke('reset_state')
+        await goto('/')
+    }
+
 
 </script>
 
@@ -103,6 +109,10 @@
         {display_dl_status()}
     </h2>
 
+    {#if dlStatus === "C"}
+        <button onclick={clear_and_restart}>Select Another Plate</button>
+    {/if}
+
     <WellPlate plate={wellStatus}>
         {#snippet rowHdr(r: number)}
             <th scope="row">{String.fromCharCode(65+r)}</th>
@@ -114,15 +124,11 @@
             <td class={s.progress}>{display_well_status(s)}</td>
         {/snippet}
     </WellPlate>
-
-
-    
-
 </main>
 
 <footer>
     <hr />
-    <a href="/output">Change output info</a>
+    <a href="/output">← Change output info</a>
 </footer>
 
 

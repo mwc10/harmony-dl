@@ -45,6 +45,13 @@ async fn get_dl_info(state: State<'_, Mutex<AppState>>) -> Result<DownloadInfo, 
     DownloadInfo::try_from(&*state).map_err(|err| format!("{:?}", err))
 }
 
+#[tauri::command]
+async fn reset_state(state: State<'_, Mutex<AppState>>) -> Result<(), String> {
+    let mut state = state.lock().await;
+    *state = AppState::default();
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     Builder::default()
@@ -55,6 +62,7 @@ pub fn run() {
             get_dl_info,
             set_filter,
             set_output,
+            reset_state,
             parse_xml::parse_xml,
             process::start_download,
         ])

@@ -40,13 +40,11 @@
 <main>
 <h1>Output Settings</h1>
 
+<h2>Output Directory</h2>
 {#if outdir === null}
     <button onclick={select_output_dir}>Select Output Directory</button>
 {:else}
-    <div>Output Directory:</div>
-    <div>{outdir}</div>
-
-    <button onclick={start_download}>Download Images</button>
+    <p>{outdir}</p>
     <button onclick={() => outdir = null}>Select Another Directory</button>
 {/if}
 
@@ -76,10 +74,18 @@
 </label>
 {/each}
 
-
-
+{#if outdir !== null}
+<div class="centered">
+    <button class="next" onclick={start_download}>Download Images</button>
+</div>
+{/if}
 
 </main>
+
+<footer>
+    <hr />
+    <a href='/select'>← Change Filter Settings</a>
+</footer>
 
 <style>
 input, label {
@@ -94,5 +100,18 @@ label {
 
 label>span:hover {
     text-decoration: underline;
+}
+
+.centered {
+    display: flex;
+    justify-content: center;
+    text-align: center;
+}
+
+button.next {
+    display: block;
+    margin-top: 2rem;
+    margin-bottom: 0.5rem;
+    width: 85%;
 }
 </style>

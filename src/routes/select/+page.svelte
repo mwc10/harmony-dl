@@ -181,9 +181,12 @@
         <button class='next' onclick={apply_filter}>Select Output Options</button>
     </div>
 
-    <hr />
-    <a href="/">Select Another File?</a>
 </main>
+
+<footer>
+    <hr />
+    <a href="/">← Select Another File?</a>
+</footer>
 
 <style>
     div.plate {
