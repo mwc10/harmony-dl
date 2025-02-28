@@ -8,6 +8,8 @@ use std::{
 };
 use tauri::{async_runtime::Mutex, State};
 
+mod ffc;
+
 // Helpers
 type TempMap = HashMap<String, String>;
 pub type ChanMap = HashMap<ChannelID, Channel>;
