@@ -62,9 +62,10 @@
   }
   .error {
     background-color: darkred;
+    color: #DDD;
     padding: 1rem 2rem;
     margin: 1rem 0;
-    font-weight: 800;
+    font-weight: 500;
     border-radius: 1rem;
     white-space: pre-wrap;
     text-align: left;

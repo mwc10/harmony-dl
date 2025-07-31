@@ -21,7 +21,8 @@ export interface Channel {
     id: number,
     name: string,
     res: [number, number],
-    mag: number
+    mag: number,
+    has_fcc: boolean,
 }
 
 export interface ImageFilter {

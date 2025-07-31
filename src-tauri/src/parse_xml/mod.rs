@@ -1,5 +1,6 @@
 use super::AppState;
 use anyhow::{anyhow, bail, Context, Result};
+use ffc::FFC;
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
@@ -13,6 +14,7 @@ mod ffc;
 // Helpers
 type TempMap = HashMap<String, String>;
 pub type ChanMap = HashMap<ChannelID, Channel>;
+type FfcMap = HashMap<ChannelID, FFC>;
 type PlateVec<T> = Vec<Vec<Option<T>>>;
 type PlateMap<T> = HashMap<(u8, u8), T>;
 
@@ -54,6 +56,7 @@ pub struct ChannelID(u8);
 pub struct Harmony {
     pub plate: Plate,
     pub channels: ChanMap,
+    pub ffc: FfcMap,
     pub images: Vec<Image>,
     pub wells: PlateMap<WellInfo>,
     pub timepoints: u16,
@@ -74,7 +77,7 @@ impl Harmony {
             .create_reader(BufReader::new(f));
 
         let mut plate = None;
-        let mut channels = None;
+        let mut chaninfo = None;
         let mut images = None;
         let mut wells = None;
 
@@ -88,7 +91,7 @@ impl Harmony {
                         .context("parsing <Plates>")?;
                 }
                 StartElement { name, .. } if name.local_name == "Maps" => {
-                    channels = parse_maps(&mut rdr)
+                    chaninfo = parse_maps(&mut rdr)
                         .map(Some)
                         .context("parsing channel info from <Maps>")?;
                 }
@@ -105,14 +108,16 @@ impl Harmony {
 
         // there has to be better way to do this..? map_n? match?
         plate
-            .zip(channels)
+            .zip(chaninfo)
             .zip(images)
             .zip(wells)
-            .map(|(((plate, channels), images), wells)| {
+            .map(|(((plate, chaninfo), images), wells)| {
                 let (f, p, tp) = summarize_wells(&wells);
+                let (channels, ffc) = chaninfo;
                 Self {
                     plate,
                     channels,
+                    ffc,
                     images,
                     wells,
                     fields_per_well: f,
@@ -158,33 +163,35 @@ pub struct Channel {
     pub name: String,
     pub res: (f64, f64), // in microns
     pub mag: u16,
-    //pub flatfield_profile: Vec<u8>,
+    pub has_fcc: bool,
 }
 
-impl TryFrom<(TempMap, ChannelID)> for Channel {
-    type Error = anyhow::Error;
+fn try_into_channel(map: TempMap, id: ChannelID) -> Result<(Channel, Option<FFC>)> {
+    let get_str = |key| get_string(&map, key).with_context(|| format!("parsing Channel {}", id.0));
+    let get_u16 = |key| get_u16(&map, key).with_context(|| format!("parsing Channel {}", id.0));
+    let get_f64 = |key| get_f64(&map, key).with_context(|| format!("parsing Channel {}", id.0));
 
-    fn try_from(value: (TempMap, ChannelID)) -> std::result::Result<Self, Self::Error> {
-        let (value, id) = value;
+    // ideally, report any Err conditions here,
+    // and turn off FFC for this wavelength...
+    let fcc = map
+        .get("FlatfieldProfile")
+        .map(|s| FFC::from_raw_xml(s))
+        .transpose()
+        .with_context(|| format!("parsing FFC data for {}", id.0))?;
 
-        let get_str =
-            |key| get_string(&value, key).with_context(|| format!("parsing Channel {}", id.0));
-        let get_u16 =
-            |key| get_u16(&value, key).with_context(|| format!("parsing Channel {}", id.0));
-        let get_f64 =
-            |key| get_f64(&value, key).with_context(|| format!("parsing Channel {}", id.0));
+    let channel = Channel {
+        id: id,
+        name: get_str("ChannelName")?,
+        // originally, these are in meters? do this check dynamically?
+        res: (
+            get_f64("ImageResolutionX")? * 1e6,
+            get_f64("ImageResolutionY")? * 1e6,
+        ),
+        mag: get_u16("ObjectiveMagnification")?,
+        has_fcc: fcc.is_some(),
+    };
 
-        Ok(Self {
-            id: id,
-            name: get_str("ChannelName")?,
-            // originally, these are in meters? do this check dynamically?
-            res: (
-                get_f64("ImageResolutionX")? * 1e6,
-                get_f64("ImageResolutionY")? * 1e6,
-            ),
-            mag: get_u16("ObjectiveMagnification")?,
-        })
-    }
+    Ok((channel, fcc))
 }
 
 #[derive(Debug)]
@@ -315,7 +322,7 @@ fn parse_plates<R: Read>(rdr: &mut xml::EventReader<R>) -> Result<Plate> {
         .ok_or_else(|| anyhow!("Found no plates in <Plates> section"))
 }
 
-fn parse_maps<R: Read>(rdr: &mut xml::EventReader<R>) -> Result<ChanMap> {
+fn parse_maps<R: Read>(rdr: &mut xml::EventReader<R>) -> Result<(ChanMap, FfcMap)> {
     use xml::reader::XmlEvent::*;
 
     fn find_channel_id(attr: &[xml::attribute::OwnedAttribute]) -> Result<ChannelID> {
@@ -361,9 +368,17 @@ fn parse_maps<R: Read>(rdr: &mut xml::EventReader<R>) -> Result<ChanMap> {
         }
     }
 
+    let init = (ChanMap::new(), FfcMap::new());
     raw.into_iter()
-        .map(|(k, temp)| Channel::try_from((temp, k)).map(|v| (k, v)))
-        .collect()
+        .map(|(k, temp)| try_into_channel(temp, k).map(|v| (k, v)))
+        .try_fold(init, |mut acc, res| {
+            let (k, (info, ffc)) = res?;
+            acc.0.insert(k, info);
+            if let Some(ffc) = ffc {
+                acc.1.insert(k, ffc);
+            }
+            Ok(acc)
+        })
 }
 
 fn parse_images<R: Read>(rdr: &mut xml::EventReader<R>) -> Result<Vec<Image>> {
@@ -488,6 +503,7 @@ pub async fn parse_xml(path: &str, state: State<'_, Mutex<AppState>>) -> Result<
 
     let info = Harmony::from_xml_path(&path).map_err(|e| format!("{:?}", e))?;
 
+    // println!("FlatField Stuff:\n{:?}", &info.ffc);
     // store state so that images from selected wells can be fetched later
     let mut state = state.lock().await;
     state.info = Some(info);

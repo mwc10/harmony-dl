@@ -31,4 +31,5 @@ image = { version = "0.25.5", default-features = false, features = ["tiff", "ray
 ndarray = "0.16.1"
 nshare = { version = "0.10.0", default-features = false, features = ["ndarray", "image"] }
 regex = "1.11.1"
+serde_yaml = "0.9.34"
 
